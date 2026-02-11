@@ -2,6 +2,9 @@
 name = "corn_stats"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "simple tools for status bar for linux"
+repository = "https://github.com/hermandev/corn-stats"
 
 [dependencies]
 # GTK3 stack (konsisten)
@@ -12,3 +15,8 @@ sysinfo = "0.38.1"
 procfs = "0.18"
 gtk = "0.18.2"
 glib = "0.21.5"
+
+
+[[bin]]
+name = "corn_stats"
+path = "src/main.rs"
