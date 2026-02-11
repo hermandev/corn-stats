@@ -1,10 +1,14 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, fs, process::Command, time::Duration};
 
 use appindicator3::{Indicator, traits::AppIndicatorExt};
+use clap::{Parser, Subcommand};
 use gtk::prelude::*;
 use sysinfo::{Networks, System};
 
+const SERVICE_PATH: &str = "/etc/systemd/system/corn_stats.service";
+
 fn main() {
+    initialize_cli();
     gtk::init().unwrap();
 
     let menu = gtk::Menu::new();
@@ -67,4 +71,103 @@ fn main() {
     });
 
     gtk::main();
+}
+
+#[derive(Parser)]
+#[command(name = "corn_stats")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Install,
+    Uninstall,
+    Start,
+    Stop,
+}
+
+fn initialize_cli() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Install => install(),
+        Commands::Uninstall => uninstall(),
+        Commands::Start => start(),
+        Commands::Stop => stop(),
+    }
+}
+
+fn install() {
+    let binary_path = std::env::current_exe().unwrap().display().to_string();
+
+    let service_content = format!(
+        r#"[Unit]
+        Description=Corn Stats
+        After=network.target
+        
+        [Service]
+        ExecStart={} daemon
+        Restart=always
+        RestartSec=5
+        
+        [Install]
+        WantedBy=multi-user.target
+        "#,
+        binary_path
+    );
+
+    fs::write(SERVICE_PATH, service_content).expect("Failed to write service file");
+    Command::new("systemctl")
+        .arg("daemon-reload")
+        .status()
+        .unwrap();
+
+    Command::new("systemctl")
+        .arg("enable")
+        .arg("corn-stats")
+        .status()
+        .unwrap();
+
+    println!("Corn Stats installed successfully.");
+}
+
+fn uninstall() {
+    Command::new("systemctl")
+        .arg("stop")
+        .arg("corn_stats")
+        .status()
+        .ok();
+
+    Command::new("systemctl")
+        .arg("disable")
+        .arg("corn_stats")
+        .status()
+        .ok();
+
+    std::fs::remove_file(SERVICE_PATH).ok();
+
+    Command::new("systemctl")
+        .arg("daemon-reload")
+        .status()
+        .unwrap();
+
+    println!("Corn Stats uninstalled.");
+}
+
+pub fn start() {
+    Command::new("systemctl")
+        .arg("start")
+        .arg("corn_stats")
+        .status()
+        .unwrap();
+}
+
+pub fn stop() {
+    Command::new("systemctl")
+        .arg("stop")
+        .arg("corn_stats")
+        .status()
+        .unwrap();
 }
