@@ -10,8 +10,8 @@ status yang di tampilkan pada status bar yaitu penggunaan cpu, ram, dan network
 * cara install 
 
 ```cargo install corn_stats```
-```
-```
-```
-```
-```
+
+* autostart 
+
+```corn_stats --enable-autostart```
+
