@@ -1,18 +1,11 @@
-use std::{collections::HashMap, fs, process::Command, time::Duration};
+use std::{collections::HashMap, fs, path::PathBuf, time::Duration};
 
 use appindicator3::{Indicator, traits::AppIndicatorExt};
-use clap::{Parser, Subcommand};
 use gtk::prelude::*;
 use sysinfo::{Networks, System};
 
-const SERVICE_PATH: &str = "/etc/systemd/system/corn_stats.service";
-const GLOBAL_BIN: &str = "/usr/local/bin/corn_stats";
-
 fn main() {
-    if initialize_cli() {
-        return;
-    }
-
+    create_autostart();
     gtk::init().unwrap();
 
     let menu = gtk::Menu::new();
@@ -77,133 +70,33 @@ fn main() {
     gtk::main();
 }
 
-#[derive(Parser)]
-#[command(name = "corn_stats")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
+fn create_autostart() {
+    let home = std::env::var("HOME").expect("Cannot get HOME directory");
+    let mut path = PathBuf::from(home);
+    path.push(".config/autostart");
 
-#[derive(Subcommand)]
-enum Commands {
-    Install {
-        #[arg(long)]
-        global: bool,
-    },
-    Uninstall,
-    Start,
-    Stop,
-}
+    // Buat folder kalau belum ada
+    fs::create_dir_all(&path).ok();
 
-fn initialize_cli() -> bool {
-    if std::env::args().len() <= 1 {
-        return false;
-    }
-    let cli = Cli::parse();
-
-    match cli.command {
-        Commands::Install { global } => install(global),
-        Commands::Uninstall => uninstall(),
-        Commands::Start => start(),
-        Commands::Stop => stop(),
-    }
-
-    true
-}
-
-fn ensure_root() {
-    if !nix::unistd::geteuid().is_root() {
-        eprintln!("This command must be run as root (use sudo).");
-        std::process::exit(1);
-    }
-}
-
-fn install(global: bool) {
-    ensure_root();
     let current_bin = std::env::current_exe().unwrap();
 
-    if global {
-        let current_path = current_bin.to_string_lossy();
-        if current_path != GLOBAL_BIN {
-            println!("Installing globally to {}", GLOBAL_BIN);
-            fs::copy(&current_bin, GLOBAL_BIN).expect("Failed to copy binary to /usr/local/bin");
-        } else {
-            println!("Binary already running from {}", GLOBAL_BIN);
-        }
-    }
-
-    let exec_path = if global {
-        GLOBAL_BIN.to_string()
-    } else {
-        current_bin.display().to_string()
-    };
-
-    let service_content = format!(
-        r#"[Unit]
-        Description=Corn Stats
-        After=network.target
-        
-        [Service]
-        ExecStart={}
-        Restart=always
-        RestartSec=5
-        
-        [Install]
-        WantedBy=multi-user.target
+    let desktop_entry = format!(
+        r#"[Desktop Entry]
+        Type=Application
+        Exec={}
+        Hidden=false
+        NoDisplay=false
+        X-GNOME-Autostart-enabled=true
+        Name=Corn Stats
+        Comment=System tray monitoring
         "#,
-        exec_path
+        current_bin.display()
     );
 
-    fs::write(SERVICE_PATH, service_content).expect("Failed to write service file");
-    Command::new("systemctl")
-        .arg("daemon-reload")
-        .status()
-        .unwrap();
+    path.push("corn_stats.desktop");
 
-    Command::new("systemctl")
-        .arg("enable")
-        .arg("corn_stats.service")
-        .status()
-        .unwrap();
-
-    println!("Corn Stats installed successfully.");
-}
-
-fn uninstall() {
-    Command::new("systemctl")
-        .arg("stop")
-        .arg("corn_stats.service")
-        .status()
-        .ok();
-
-    Command::new("systemctl")
-        .arg("disable")
-        .arg("corn_stats.service")
-        .status()
-        .ok();
-
-    std::fs::remove_file(SERVICE_PATH).ok();
-
-    Command::new("systemctl")
-        .arg("daemon-reload")
-        .status()
-        .unwrap();
-
-    println!("Corn Stats uninstalled.");
-}
-
-pub fn start() {
-    Command::new("systemctl")
-        .arg("start")
-        .arg("corn_stats")
-        .status()
-        .unwrap();
-}
-
-pub fn stop() {
-    Command::new("systemctl")
-        .arg("stop")
-        .arg("corn_stats")
-        .status()
-        .unwrap();
+    if !path.exists() {
+        fs::write(&path, desktop_entry).expect("Failed to create autostart file");
+        println!("Autostart enabled.");
+    }
 }
