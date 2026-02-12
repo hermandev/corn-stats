@@ -1,6 +1,6 @@
 [package]
 name = "corn_stats"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MIT"
 description = "simple tools for status bar for linux"
@@ -16,6 +16,7 @@ procfs = "0.18"
 gtk = "0.18.2"
 glib = "0.21.5"
 clap = { version = "4.5.58", features = ["derive"] }
+nix = { version = "0.31.1", features = ["user"] }
 
 
 [[bin]]
