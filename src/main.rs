@@ -9,7 +9,10 @@ const SERVICE_PATH: &str = "/etc/systemd/system/corn_stats.service";
 const GLOBAL_BIN: &str = "/usr/local/bin/corn_stats";
 
 fn main() {
-    initialize_cli();
+    if initialize_cli() {
+        return;
+    }
+
     gtk::init().unwrap();
 
     let menu = gtk::Menu::new();
@@ -92,7 +95,10 @@ enum Commands {
     Stop,
 }
 
-fn initialize_cli() {
+fn initialize_cli() -> bool {
+    if std::env::args().len() <= 1 {
+        return false;
+    }
     let cli = Cli::parse();
 
     match cli.command {
@@ -101,6 +107,8 @@ fn initialize_cli() {
         Commands::Start => start(),
         Commands::Stop => stop(),
     }
+
+    true
 }
 
 fn ensure_root() {
@@ -136,7 +144,7 @@ fn install(global: bool) {
         After=network.target
         
         [Service]
-        ExecStart={} daemon
+        ExecStart={}
         Restart=always
         RestartSec=5
         
@@ -154,7 +162,7 @@ fn install(global: bool) {
 
     Command::new("systemctl")
         .arg("enable")
-        .arg("corn-stats")
+        .arg("corn_stats.service")
         .status()
         .unwrap();
 
@@ -164,13 +172,13 @@ fn install(global: bool) {
 fn uninstall() {
     Command::new("systemctl")
         .arg("stop")
-        .arg("corn_stats")
+        .arg("corn_stats.service")
         .status()
         .ok();
 
     Command::new("systemctl")
         .arg("disable")
-        .arg("corn_stats")
+        .arg("corn_stats.service")
         .status()
         .ok();
 
