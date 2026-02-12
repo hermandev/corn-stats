@@ -6,6 +6,7 @@ use gtk::prelude::*;
 use sysinfo::{Networks, System};
 
 const SERVICE_PATH: &str = "/etc/systemd/system/corn_stats.service";
+const GLOBAL_BIN: &str = "/usr/local/bin/corn_stats";
 
 fn main() {
     initialize_cli();
@@ -82,7 +83,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Install,
+    Install {
+        #[arg(long)]
+        global: bool,
+    },
     Uninstall,
     Start,
     Stop,
@@ -92,15 +96,34 @@ fn initialize_cli() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Install => install(),
+        Commands::Install { global } => install(global),
         Commands::Uninstall => uninstall(),
         Commands::Start => start(),
         Commands::Stop => stop(),
     }
 }
 
-fn install() {
-    let binary_path = std::env::current_exe().unwrap().display().to_string();
+fn ensure_root() {
+    if !nix::unistd::geteuid().is_root() {
+        eprintln!("This command must be run as root (use sudo).");
+        std::process::exit(1);
+    }
+}
+
+fn install(global: bool) {
+    ensure_root();
+    let current_bin = std::env::current_exe().unwrap();
+
+    if global {
+        println!("Installing globally to {}", GLOBAL_BIN);
+        fs::copy(&current_bin, GLOBAL_BIN).expect("Failed to copy binary to /usr/local/bin");
+    }
+
+    let exec_path = if global {
+        GLOBAL_BIN.to_string()
+    } else {
+        current_bin.display().to_string()
+    };
 
     let service_content = format!(
         r#"[Unit]
@@ -115,7 +138,7 @@ fn install() {
         [Install]
         WantedBy=multi-user.target
         "#,
-        binary_path
+        exec_path
     );
 
     fs::write(SERVICE_PATH, service_content).expect("Failed to write service file");
