@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf, time::Duration};
+use std::{collections::HashMap, fs, path::PathBuf, process::Command, time::Duration};
 
 use appindicator3::{Indicator, traits::AppIndicatorExt};
 use gtk::prelude::*;
@@ -98,5 +98,11 @@ fn create_autostart() {
     if !path.exists() {
         fs::write(&path, desktop_entry).expect("Failed to create autostart file");
         println!("Autostart enabled.");
+
+        Command::new(current_bin)
+            .spawn()
+            .expect("Failed to launch application");
+
+        std::process::exit(0);
     }
 }
