@@ -115,8 +115,13 @@ fn install(global: bool) {
     let current_bin = std::env::current_exe().unwrap();
 
     if global {
-        println!("Installing globally to {}", GLOBAL_BIN);
-        fs::copy(&current_bin, GLOBAL_BIN).expect("Failed to copy binary to /usr/local/bin");
+        let current_path = current_bin.to_string_lossy();
+        if current_path != GLOBAL_BIN {
+            println!("Installing globally to {}", GLOBAL_BIN);
+            fs::copy(&current_bin, GLOBAL_BIN).expect("Failed to copy binary to /usr/local/bin");
+        } else {
+            println!("Binary already running from {}", GLOBAL_BIN);
+        }
     }
 
     let exec_path = if global {
